@@ -60,16 +60,23 @@ def undo_log_entry(logfile, timestamp):
         lf.write(undoline)
         print 'wrote:\n   %s to\n%s'%(undoline, undofile)
 
-def log_work(database, start, end, undo):
+def file_locations(database):
     now = datetime.datetime.now()
     yearfolder = database + '/' + "%.4d"%(now.year)
     monthfolder = yearfolder + '/' + "%.2d"%(now.month)
     dayfolder = monthfolder + '/' + "%.2d"%(now.day)
     logfile = dayfolder + '/' + 'daily.log'
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-    
+
+    # make sure file locations are available
     for afold in [database, yearfolder, monthfolder, dayfolder]:
         folder_exists(afold)
+
+    return logfile, timestamp
+
+def log_work(database, start, end, undo):
+
+    logfile, timestamp = file_locations(database)
 
     projectfile = database + '/projects.p'
     projects = load_stored_sets(projectfile)
@@ -83,18 +90,20 @@ def log_work(database, start, end, undo):
         make_log_entry(logfile, timestamp, '', '', 'START')
     elif end:
         make_log_entry(logfile, timestamp, '', '', 'END')
-    else: 
+    else:
         print 'Projects = ', sorted(projects)
         response = raw_input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
         projname = sanitize_response(response)
         projects = projects | set(projname)
-        
+
         print 'Tasks = ', sorted(tasks)
         response = raw_input("Please enter task names, e.g., 'analysis, lit_review, misc':\n")
         taskname = sanitize_response(response)
         tasks = tasks | set(taskname)
 
         entry = raw_input("Please log entry:\n")
+        # refresh time stamp to follow once entry is committed
+        logfile, timestamp = file_locations(database)
         make_log_entry(logfile, timestamp, ','.join(projname), ','.join(taskname), entry)
 
         save_stored_sets(projects, projectfile)
@@ -109,13 +118,22 @@ if __name__ == "__main__":
     parser.add_option("-s", "--start", dest="start", help="Starting entry", action='store_true')
     parser.add_option("-e", "--end", dest="end", help="Ending entry", action='store_true')
     parser.add_option("-u", "--undo", dest="undo", help="Undo last entry", action='store_true')
-    parser.set_defaults(start=False, end=False, undo=False)
+    parser.add_option("-p", "--print", dest="printlog", help="Print daily work log", action='store_true')
+    parser.set_defaults(start=False, end=False, undo=False, printlog=False)
 
 
     options, args = parser.parse_args()
     if not options.database:
         options.database = os.path.expanduser('~') + '/Documents/WorkLogDatabase'
-    
+
     print "Using database at " + options.database
 
-    log_work(options.database, options.start, options.end, options.undo)
+    if options.printlog:
+        logfile, timestamp = file_locations(options.database)
+        print 'Current time is %s'%(timestamp)
+        print 'Outputing daily log %s:\n'%(logfile)
+        with open(logfile,'r') as lf:
+            print lf.read()
+            lf.close()
+    else:
+        log_work(options.database, options.start, options.end, options.undo)
