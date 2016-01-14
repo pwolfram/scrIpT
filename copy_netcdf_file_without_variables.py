@@ -18,7 +18,7 @@ def copy_netcdf_file_without_variables(infile, outfile):
   """
 
   ifile = netCDF4.Dataset(infile,'r')
-  ofile = netCDF4.Dataset(outfile,'w')
+  ofile = netCDF4.Dataset(outfile,'w',format='NETCDF4_CLASSIC')
 
   # transfer dimensions
   for dim in ifile.dimensions.values():
@@ -27,6 +27,10 @@ def copy_netcdf_file_without_variables(infile, outfile):
   # transfer global attributes
   for name, value in zip(ifile.__dict__.keys(), ifile.__dict__.values()):
     ofile.setncattr(name, value)
+
+  # copy time values
+  ofile.createVariable('xtime','c', ('Time','StrLen'))
+  ofile.variables['xtime'][:] = ifile.variables['xtime'][:]
 
   # modify history and store metadata
   callcmd = ' '.join(sys.argv)
