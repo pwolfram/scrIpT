@@ -3,6 +3,7 @@
 import os
 import datetime
 import pickle
+import numpy as np
 
 def folder_exists(folder, create=True, verbose=True):
     if not os.path.exists(folder):
@@ -74,7 +75,18 @@ def file_locations(database):
 
     return logfile, timestamp
 
-def log_work(database, start, end, undo):
+def print_items(prompt, items, nitems=3):
+    # break items up into sets of 5
+    print "================================================================================"
+    print prompt
+    print "--------------------------------------------------------------------------------"
+    thelist = list(items)
+    n = len(thelist)
+    for i in np.arange(n/nitems):
+        print thelist[nitems*i:(nitems*i+nitems)]
+    print "================================================================================"
+
+def log_work(database, start, end, continued, undo):
 
     logfile, timestamp = file_locations(database)
 
@@ -90,13 +102,15 @@ def log_work(database, start, end, undo):
         make_log_entry(logfile, timestamp, '', '', 'START')
     elif end:
         make_log_entry(logfile, timestamp, '', '', 'END')
+    elif continued: 
+        make_log_entry(logfile, timestamp, '', '', 'CONTINUED')
     else:
-        print 'Projects = ', sorted(projects)
+        print_items('Projects', sorted(projects))
         response = raw_input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
         projname = sanitize_response(response)
         projects = projects | set(projname)
 
-        print 'Tasks = ', sorted(tasks)
+        print_items('Tasks', sorted(tasks))
         response = raw_input("Please enter task names, e.g., 'analysis, lit_review, misc':\n")
         taskname = sanitize_response(response)
         tasks = tasks | set(taskname)
@@ -117,6 +131,7 @@ if __name__ == "__main__":
     parser.add_option("-d", "--database_location", dest="database", help="Location for work database", metavar="FOLDER")
     parser.add_option("-s", "--start", dest="start", help="Starting entry", action='store_true')
     parser.add_option("-e", "--end", dest="end", help="Ending entry", action='store_true')
+    parser.add_option("-c", "--continued", dest="continued", help="Continued entry", action='store_true')
     parser.add_option("-u", "--undo", dest="undo", help="Undo last entry", action='store_true')
     parser.add_option("-p", "--print", dest="printlog", help="Print daily work log", action='store_true')
     parser.set_defaults(start=False, end=False, undo=False, printlog=False)
@@ -130,10 +145,13 @@ if __name__ == "__main__":
 
     if options.printlog:
         logfile, timestamp = file_locations(options.database)
+        print "================================================================================"
         print 'Current time is %s'%(timestamp)
-        print 'Outputing daily log %s:\n'%(logfile)
+        print 'Outputing daily log %s:'%(logfile)
+        print "--------------------------------------------------------------------------------"
         with open(logfile,'r') as lf:
             print lf.read()
             lf.close()
+        print "--------------------------------------------------------------------------------"
     else:
-        log_work(options.database, options.start, options.end, options.undo)
+        log_work(options.database, options.start, options.end, options.continued, options.undo)
