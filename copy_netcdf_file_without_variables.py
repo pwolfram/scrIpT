@@ -8,7 +8,7 @@ Phillip J. Wolfram
 """
 
 import netCDF4
-import sys, socket, os
+import sys, socket, os, datetime
 
 def copy_netcdf_file_without_variables(infile, outfile):
   """
@@ -28,13 +28,14 @@ def copy_netcdf_file_without_variables(infile, outfile):
   for name, value in zip(ifile.__dict__.keys(), ifile.__dict__.values()):
     ofile.setncattr(name, value)
 
-  # modify history
+  # modify history and store metadata
   callcmd = ' '.join(sys.argv)
   ofile.history = callcmd + '; ' + ofile.history
   ofile.meta_cwd = os.getcwd()
   ofile.meta_host = socket.gethostname()
   ofile.meta_call = ' '.join(sys.argv)
   ofile.meta_user = os.getenv('USER')
+  ofile.meta_time = str(datetime.datetime.now())
 
   ifile.close()
   ofile.close()
