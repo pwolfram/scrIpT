@@ -153,5 +153,6 @@ if __name__ == "__main__":
             print lf.read()
             lf.close()
         print "--------------------------------------------------------------------------------"
+        print logfile
     else:
         log_work(options.database, options.start, options.end, options.continued, options.undo)
