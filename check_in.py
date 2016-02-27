@@ -43,7 +43,7 @@ flighttime = '01/01/2016 3:00PM'
 email = "phillipwolfram@gmail.com"
 phonenum = "123-456-7890"
 
-checkintime = datetime.strptime(flighttime, '%m/%d/%Y %I:%M%p') - timedelta(days=1) + timedelta(seconds=5)
+checkintime = datetime.strptime(flighttime, '%m/%d/%Y %I:%M %p') - timedelta(days=1)
 
 while datetime.now() < checkintime:
     pass
