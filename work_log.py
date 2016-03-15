@@ -102,7 +102,7 @@ def log_work(database, start, end, continued, undo):
         make_log_entry(logfile, timestamp, '', '', 'START')
     elif end:
         make_log_entry(logfile, timestamp, '', '', 'END')
-    elif continued: 
+    elif continued:
         make_log_entry(logfile, timestamp, '', '', 'CONTINUED')
     else:
         print_items('Projects', sorted(projects))
