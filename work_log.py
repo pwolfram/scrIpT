@@ -3,6 +3,7 @@
 import os
 import datetime
 import pickle
+import subprocess
 import numpy as np
 
 def folder_exists(folder, create=True, verbose=True):
@@ -134,6 +135,7 @@ if __name__ == "__main__":
     parser.add_option("-c", "--continued", dest="continued", help="Continued entry", action='store_true')
     parser.add_option("-u", "--undo", dest="undo", help="Undo last entry", action='store_true')
     parser.add_option("-p", "--print", dest="printlog", help="Print daily work log", action='store_true')
+    parser.add_option("-r", "--edit", dest="editlog", help="Edit daily work log", action='store_true')
     parser.set_defaults(start=False, end=False, undo=False, printlog=False)
 
 
@@ -154,5 +156,9 @@ if __name__ == "__main__":
             lf.close()
         print "--------------------------------------------------------------------------------"
         print logfile
+    elif options.editlog:
+        logfile, timestamp = file_locations(options.database)
+        edit_call = [ "mvim", logfile]
+        edit = subprocess.Popen(edit_call)
     else:
         log_work(options.database, options.start, options.end, options.continued, options.undo)
