@@ -83,7 +83,7 @@ def print_items(prompt, items, nitems=3):
     print "--------------------------------------------------------------------------------"
     thelist = list(items)
     n = len(thelist)
-    for i in np.arange(n/nitems):
+    for i in np.arange(int(np.ceil(n/float(nitems)))):
         print thelist[nitems*i:(nitems*i+nitems)]
     print "================================================================================"
 
