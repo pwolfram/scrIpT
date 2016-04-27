@@ -35,6 +35,13 @@ def run_cmd(cmd):
         # There was an error - command exited with non-zero code
         print proc
 
+def build_latex_pdf(afile):
+    buildorder = ['pdflatex', 'bibtex', 'pdflatex', 'pdflatex']
+    filefilter = [('', ''), ('.tex', '.aux'), ('', ''), ('', '')]
+    for astep, afilter in zip(buildorder, filefilter):
+        cmd = astep + ' ' + afile.replace(afilter[0], afilter[1])
+        run_cmd(cmd)
+
 def make_diff_pdf(githash, afile, basefile, difffile):
 
     # get previous file based on hash
@@ -46,8 +53,7 @@ def make_diff_pdf(githash, afile, basefile, difffile):
     redirect_cmd_to_file(cmd, difffile)
 
     # make pdf from file
-    cmd = 'pdflatex ' + difffile
-    run_cmd(cmd)
+    build_latex_pdf(difffile)
     highlight_output('Built pdf for latex difference: ' + difffile.replace('tex', 'pdf'))
 
 if __name__ == "__main__":
