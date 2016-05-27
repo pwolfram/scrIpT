@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import glob
 import re
 import datetime
@@ -20,6 +21,18 @@ def print_acmeanalysis(df): #{{{
     for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
         if not np.isnan(hrs):
             print 'Week of', day.date(), ':', log, "(%0.2f hrs)"%(quarter_ceil(hrs))
+    return #}}}
+
+def print_general_summary(df): #{{{
+    now = datetime.datetime.now()
+    twoweeksago = now - datetime.timedelta(13)
+    end = '%02d-%02d-%02d'%(now.year, now.month, now.day)
+    start = '%02d-%02d-%02d'%(twoweeksago.year, twoweeksago.month, twoweeksago.day)
+    biweeklywork = df[start:end].groupby(pd.TimeGrouper('D')).sum()
+    for day, hrs in zip(biweeklywork.index, biweeklywork.hrs):
+        if not np.isnan(hrs):
+            print 'Day', day.date(), ':', "%.2f hrs"%(hrs)
+    print 'Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0)
     return #}}}
 
 def build_log(database): #{{{
@@ -54,6 +67,7 @@ def build_log(database): #{{{
     #assert proj[0] == [] and proj[-1] == [], "Don't necessarily have good data for " + logfile
     #assert task[0] == [] and task[-1] == [], "Don't necessarily have good data for " + logfile
 
+    totvalid = np.where(totvalid)
     totproj = [item[0][6:-1] for item in np.asarray(totproj)[totvalid].tolist()]
     tottask = [item[0][6:-1] for item in np.asarray(tottask)[totvalid].tolist()]
     totlog  = [item[0][5:-1] for item in np.asarray(totlog)[totvalid].tolist()]
@@ -70,9 +84,11 @@ def build_log(database): #{{{
                          'log' : totlog
                          }, index=pd.Series(totstarttime))
     # print summary
-    print_acmeanalysis(df)
+    #print_acmeanalysis(df)
+    print_general_summary(df)
 
     #plt.plot(tottimestamp,totduration,'.'); plt.show()
+    import pdb; pdb.set_trace()
 
     return #}}}
 
@@ -162,7 +178,7 @@ def print_items(prompt, items, nitems=3): #{{{
     print "================================================================================"
     return #}}}
 
-def log_work(database, start, end, continued, undo): #{{{
+def log_work(database, start, end, undo): #{{{
 
     logfile, timestamp = file_locations(database)
 
@@ -178,8 +194,6 @@ def log_work(database, start, end, continued, undo): #{{{
         make_log_entry(logfile, timestamp, '', '', 'START')
     elif end:
         make_log_entry(logfile, timestamp, '', '', 'END')
-    elif continued:
-        make_log_entry(logfile, timestamp, '', '', 'CONTINUED')
     else:
         print_items('Projects', sorted(projects))
         response = raw_input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
@@ -209,10 +223,10 @@ if __name__ == "__main__":
     parser.add_option("-s", "--start", dest="start", help="Starting entry", action='store_true')
     parser.add_option("-e", "--end", dest="end", help="Ending entry", action='store_true')
     parser.add_option("-l", "--log", dest="log", help="Make analyzable log", action='store_true')
-    parser.add_option("-c", "--continued", dest="continued", help="Continued entry", action='store_true')
     parser.add_option("-u", "--undo", dest="undo", help="Undo last entry", action='store_true')
     parser.add_option("-p", "--print", dest="printlog", help="Print daily work log", action='store_true')
     parser.add_option("-r", "--edit", dest="editlog", help="Edit daily work log", action='store_true')
+    parser.add_option("-x", "--editsource", dest="editsource", help="Edit source script", action='store_true')
     parser.set_defaults(start=False, end=False, undo=False, printlog=False)
 
 
@@ -220,7 +234,8 @@ if __name__ == "__main__":
     if not options.database:
         options.database = os.path.expanduser('~') + '/Documents/WorkLogDatabase'
 
-    print "Using database at " + options.database
+    source = sys.argv[0]
+    print "Using database at " + options.database + " with script at " + source
 
     if options.printlog:
         logfile, timestamp = file_locations(options.database)
@@ -237,8 +252,11 @@ if __name__ == "__main__":
         logfile, timestamp = file_locations(options.database)
         edit_call = [ "mvim", logfile]
         edit = subprocess.Popen(edit_call)
+    elif options.editsource:
+        edit_call = ["mvim", source]
+        edit = subprocess.Popen(edit_call)
     elif options.log:
         # build the log database
         build_log(options.database)
     else:
-        log_work(options.database, options.start, options.end, options.continued, options.undo)
+        log_work(options.database, options.start, options.end, options.undo)
