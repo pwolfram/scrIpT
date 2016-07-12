@@ -159,7 +159,7 @@ def get_missing_file(mf):
     assert False, 'Filetype %s is not known how to obtained'%(mf)
 
 def compute_layout_case(alayout, layouts, nodeprocs, config, acmedir='/users/pwolfram/ACME/cime/scripts', #{{{
-    casedir='/users/pwolfram/ACME-cases/', casetemplate='/users/pwolfram/ACME-cases/240km_G_analysis_AMs/'):
+    casedir='/lustre/scratch1/turquoise/pwolfram/ACME-cases/', casetemplate='/users/pwolfram/ACME-cases/240km_G_analysis_AMs/'):
 
   casename = define_case_name(alayout, layouts[alayout], nodeprocs)
   casepath = casedir + casename
@@ -196,12 +196,22 @@ def variable_layout(fcomp, focean, nodeprocs): #{{{
 
   compnodes = np.zeros_like(nodeprocs, dtype='bool')
   oceannodes = np.zeros_like(nodeprocs, dtype='bool')
+  icenodes = np.zeros_like(nodeprocs, dtype='bool')
   totalproc = len(nodeprocs)
-  compnodes[:int(np.floor(fcomp*totalproc))] = 1
+  endcomp = int(np.floor(fcomp*totalproc))
+  compnodes[:endcomp] = 1
   totalcompproc = np.sum(compnodes)
-  oceannodes[:int(np.floor(focean*totalcompproc))] = 1
+  endocn = int(np.floor(focean*totalcompproc))
+  oceannodes[:endocn] = 1
+  icenodes[endocn:endcomp] = 1
+  cplnodes = np.logical_not(compnodes)
 
-  return {'CPL': np.logical_not(compnodes), 'OCN': oceannodes, 'ICE': np.logical_not(oceannodes)} #}}}
+  sumnodes = cplnodes + oceannodes + icenodes
+
+  assert np.min(sumnodes > 0) and np.max(sumnodes) == 1 and np.min(sumnodes) == 1, \
+      'Processor decomposition is broken'
+
+  return {'CPL': cplnodes, 'OCN': oceannodes, 'ICE': icenodes} #}}}
 
 if __name__ == "__main__":
 
