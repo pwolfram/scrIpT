@@ -4,6 +4,7 @@
 import numpy as np
 import datetime
 import subprocess
+from joblib import Parallel, delayed
 import glob
 import re
 import os
@@ -165,25 +166,29 @@ def compute_layout_case(alayout, layouts, nodeprocs, config, acmedir='/users/pwo
 
   print 'Creating case for ' + casepath
 
-  # build the case
-  os.chdir(acmedir)
-  create_case(casepath, config)
+  try:
+    # build the case
+    os.chdir(acmedir)
+    create_case(casepath, config)
 
-  # set up the case
-  os.chdir(casepath)
-  make_like_othercase(casetemplate)
+    # set up the case
+    os.chdir(casepath)
+    make_like_othercase(casetemplate)
 
-  # change processor counts
-  #cat('env_mach_pes.xml')
-  change_proc_counts(layouts[alayout])
-  #cat('env_mach_pes.xml')
+    # change processor counts
+    #cat('env_mach_pes.xml')
+    change_proc_counts(layouts[alayout])
+    #cat('env_mach_pes.xml')
 
-  # configure, build, submit
-  out = configure_case()
-  build_case()
-  submit_case()
+    # configure, build, submit
+    out = configure_case()
+    build_case()
+    submit_case()
 
-  return #}}}
+    return None
+  except:
+    return casename
+    #}}}
 
 def variable_layout(fcomp, focean, nodeprocs): #{{{
   assert 0 < fcomp and fcomp <= 1, 'need to do computational work that is reasonable'
@@ -203,8 +208,9 @@ if __name__ == "__main__":
   caseconfig = {'compset': 'GMPAS_NYF', 'res': 'T62_oQU240', 'mach': 'mustang', \
       'compiler': 'gnu', 'proj': 's11_climateacme'}
 
-  layouts = {}
   for nnodes in np.arange(3,4+1):
+    print 'Computing on %s nodes'%(nnodes)
+    layouts = {}
     nodeprocs = simple_hardware_layout(nnodes, nprocs=24)
 
     layouts.update({'Nodes%d_EvenSplit'%(nnodes) : {'OCN': nodeprocs == 0, 'ICE': nodeprocs == 1, 'CPL': nodeprocs ==2},
@@ -221,9 +227,12 @@ if __name__ == "__main__":
 
     layouts.update(varlayouts)
 
-  print 'Considering %s cases: %s'%(len(layouts), layouts.keys())
+    print 'Considering %s cases: %s'%(len(layouts), layouts.keys())
 
-  validate_layouts(layouts, nodeprocs)
-  for alayout in layouts:
-    compute_layout_case(alayout, layouts, nodeprocs, caseconfig, casedir='/users/pwolfram/ACME-cases/LayoutStudyTemp/')
+    validate_layouts(layouts, nodeprocs)
+    failed = Parallel(n_jobs=12)(delayed(compute_layout_case)(alayout, layouts, nodeprocs, caseconfig, casedir='/users/pwolfram/ACME-cases/LayoutStudyTemp/') for alayout in layouts)
+
+    print 'Failed cases are %s'%(set(failed))
+
+
 
