@@ -218,7 +218,7 @@ if __name__ == "__main__":
   caseconfig = {'compset': 'GMPAS_NYF', 'res': 'T62_oQU240', 'mach': 'mustang', \
       'compiler': 'gnu', 'proj': 's11_climateacme'}
 
-  for nnodes in np.arange(3,4+1):
+  for nnodes in np.arange(3,5+1):
     print 'Computing on %s nodes'%(nnodes)
     layouts = {}
     nodeprocs = simple_hardware_layout(nnodes, nprocs=24)
@@ -228,10 +228,10 @@ if __name__ == "__main__":
               })
 
     varlayouts = {}
-    Ncomp = 5
-    Nocean = 4
-    for fcomp in np.linspace(0,1,Ncomp)[1:-1]:
-      for focean in np.linspace(0,1,Nocean)[1:-1]:
+    Ncomp = 6
+    Nocean = 16
+    for fcomp in np.linspace(0.92,0.97,Ncomp)[1:-1]:
+      for focean in np.linspace(0.85,1,Nocean)[1:-1]:
         casename = 'Nodes%d_Variable_fcomp%0.2f_focean%0.2f'%(nnodes, fcomp, focean)
         varlayouts.update({casename : variable_layout(fcomp, focean, nodeprocs)})
 
@@ -240,7 +240,8 @@ if __name__ == "__main__":
     print 'Considering %s cases: %s'%(len(layouts), layouts.keys())
 
     validate_layouts(layouts, nodeprocs)
-    failed = Parallel(n_jobs=12)(delayed(compute_layout_case)(alayout, layouts, nodeprocs, caseconfig, casedir='/users/pwolfram/ACME-cases/LayoutStudyTemp/') for alayout in layouts)
+    failed = Parallel(n_jobs=12)(delayed(compute_layout_case)(alayout, layouts, nodeprocs, caseconfig)
+        for alayout in layouts)
 
     print 'Failed cases are %s'%(set(failed))
 
