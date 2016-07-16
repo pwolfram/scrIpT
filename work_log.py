@@ -9,18 +9,34 @@ import pickle
 import subprocess
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def quarter_ceil(x): #{{{
     """ round up to nearest quarter """
     return np.ceil(x*4)/4. #}}}
 
-def print_acmeanalysis(df): #{{{
-    acmework = df[df['proj'].isin(['ACMEanalysis'])]\
+def print_proj_type(df, projtype='ACMEanalysis'): #{{{
+    print '---------------------------------------------'
+    print 'Computing summary for %s:'%(projtype)
+    print '---------------------------------------------'
+    acmework = df[df['proj'].isin([projtype])]\
                             .resample('W')\
                             .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
     for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
         if not np.isnan(hrs):
             print 'Week of', day.date(), ':', log, "(%0.2f hrs)"%(quarter_ceil(hrs))
+    return #}}}
+
+def plot_avg_hrs(df): #{{{
+    fig, ax = plt.subplots(1, 1)
+    plt.hold(True)
+    (df.resample("1d").sum().rolling(window=14, min_periods=1).sum()/2).plot(label='daily', ax=ax);
+    (df.resample("1W").sum().asfreq('d', method='backfill')).plot(label='weekly', ax=ax)
+    plt.ylabel('hrs / week')
+    L = plt.legend(loc='best')
+    L.get_texts()[0].set_text('daily')
+    L.get_texts()[1].set_text('weekly')
+    plt.grid(True)
     return #}}}
 
 def print_general_summary(df): #{{{
@@ -29,10 +45,26 @@ def print_general_summary(df): #{{{
     end = '%02d-%02d-%02d'%(now.year, now.month, now.day)
     start = '%02d-%02d-%02d'%(twoweeksago.year, twoweeksago.month, twoweeksago.day)
     biweeklywork = df[start:end].groupby(pd.TimeGrouper('D')).sum()
+
+    print '-------------------------------'
+    print '          Daily hours          '
+    print '-------------------------------'
     for day, hrs in zip(biweeklywork.index, biweeklywork.hrs):
         if not np.isnan(hrs):
-            print 'Day', day.date(), ':', "%.2f hrs"%(hrs)
+            print '| Day ', day.date(), '|', " %.2f hrs |"%(hrs)
+    print '-------------------------------'
     print 'Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0)
+
+    print '\n'
+
+    #print week totals
+    print '-----------------------------'
+    print '     Week ending totals      '
+    print '-----------------------------'
+    weeks = df.resample('W').sum().tail()
+    for day, hrs in zip(weeks.index, weeks.hrs):
+        print '| ', day.date(), ' | ', "%.2f hrs |"%(hrs)
+    print '-----------------------------'
     return #}}}
 
 def build_log(database): #{{{
@@ -84,10 +116,16 @@ def build_log(database): #{{{
                          'log' : totlog
                          }, index=pd.Series(totstarttime))
     # print summary
-    #print_acmeanalysis(df)
+    print_proj_type(df, projtype='ACMEanalysis')
+    print_proj_type(df, projtype='ACME')
     print_general_summary(df)
 
+    # plot of average hours:
+    plot_avg_hrs(df)
+
     #plt.plot(tottimestamp,totduration,'.'); plt.show()
+
+    plt.show()
     import pdb; pdb.set_trace()
 
     return #}}}
