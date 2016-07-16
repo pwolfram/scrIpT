@@ -42,7 +42,7 @@ def build_latex_pdf(afile):
         cmd = astep + ' ' + afile.replace(afilter[0], afilter[1])
         run_cmd(cmd)
 
-def make_diff_pdf(githash, afile, basefile, difffile):
+def make_diff_pdf(githash, afile, basefile, difffile, build=True):
 
     # get previous file based on hash
     cmd = 'git show ' + githash + ':' + afile
@@ -53,8 +53,9 @@ def make_diff_pdf(githash, afile, basefile, difffile):
     redirect_cmd_to_file(cmd, difffile)
 
     # make pdf from file
-    build_latex_pdf(difffile)
-    highlight_output('Built pdf for latex difference: ' + difffile.replace('tex', 'pdf'))
+    if build:
+        build_latex_pdf(difffile)
+        highlight_output('Built pdf for latex difference: ' + difffile.replace('tex', 'pdf'))
 
 if __name__ == "__main__":
     import argparse
@@ -72,7 +73,10 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--clean", dest='clean', action='store_true',
             help="Overwrite existing basefile and outfiles," \
                     + "defaults of base.texi and diff.tex")
+    parser.add_argument("-s", "--skip", dest='build', action='store_false',
+            help="Skip building latex file")
     parser.set_defaults(clean=False)
+    parser.set_defaults(build=True)
 
     args = parser.parse_args()
 
@@ -84,6 +88,6 @@ if __name__ == "__main__":
         rmtrash(args.basefile)
         rmtrash(args.outfile)
 
-    make_diff_pdf(args.githash, args.afile, args.basefile, args.outfile)
+    make_diff_pdf(args.githash, args.afile, args.basefile, args.outfile, args.build)
 
 # vim: foldmethod=marker ai ts=4 sts=4 et sw=4 ft=python
