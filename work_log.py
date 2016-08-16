@@ -51,7 +51,7 @@ def print_general_summary(df): #{{{
     print '-------------------------------'
     for day, hrs in zip(biweeklywork.index, biweeklywork.hrs):
         if not np.isnan(hrs):
-            print '| Day ', day.date(), '|', " %.2f hrs |"%(hrs)
+            print '| Day ', day.date(), '|', " %5.2f hrs |"%(hrs)
     print '-------------------------------'
     print 'Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0)
 
@@ -63,9 +63,13 @@ def print_general_summary(df): #{{{
     print '-----------------------------'
     weeks = df.resample('W').sum().tail()
     for day, hrs in zip(weeks.index, weeks.hrs):
-        print '| ', day.date(), ' | ', "%.2f hrs |"%(hrs)
+        print '| ', day.date(), ' | ', "%6.2f hrs |"%(hrs)
     print '-----------------------------'
     return #}}}
+
+def savefig(name): #{{{
+    print 'Saving figure to %s'%(name)
+    plt.savefig(name) #}}}
 
 def build_log(database): #{{{
     # get files organized in terms of year/month/day/daily.log
@@ -116,8 +120,8 @@ def build_log(database): #{{{
                          'log' : totlog
                          }, index=pd.Series(totstarttime))
     # print summary
-    print_proj_type(df, projtype='ACMEanalysis')
-    print_proj_type(df, projtype='ACME')
+    #print_proj_type(df, projtype='ACMEanalysis')
+    #print_proj_type(df, projtype='ACME')
     print_general_summary(df)
 
     # plot of average hours:
@@ -125,8 +129,7 @@ def build_log(database): #{{{
 
     #plt.plot(tottimestamp,totduration,'.'); plt.show()
 
-    plt.show()
-    import pdb; pdb.set_trace()
+    savefig('/Users/pwolfram/hist.png')
 
     return #}}}
 
@@ -232,6 +235,8 @@ def log_work(database, start, end, undo): #{{{
         make_log_entry(logfile, timestamp, '', '', 'START')
     elif end:
         make_log_entry(logfile, timestamp, '', '', 'END')
+        # print summary at closeout
+        build_log(database)
     else:
         print_items('Projects', sorted(projects))
         response = raw_input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
