@@ -4,6 +4,7 @@ A collection of useful scripts.
 ## MPAS
  * Make ctags for MPAS repo, `maketags.sh`
  * Compute mesh computational halos, `computational_halos.py`
+ * Automate configuration file creation, `build_config_file.py`
  
 ## netCDF
  *  Copy dimensions and attributes from netCDF file ignoring variables,	`copy_netcdf_file_without_variables.py`
