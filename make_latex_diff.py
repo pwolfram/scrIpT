@@ -49,7 +49,8 @@ def make_diff_pdf(githash, afile, basefile, difffile, build=True):
     redirect_cmd_to_file(cmd, basefile)
 
     # get latex diff'd file
-    cmd = 'latexdiff --append-context2cmd="abstract" ' + basefile + ' ' + afile
+    cmd = 'latexdiff --append-context2cmd="abstract" --math-markup=0 ' + basefile + ' ' + afile
+    #cmd = 'latexdiff --append-context2cmd="abstract" ' + basefile + ' ' + afile
     redirect_cmd_to_file(cmd, difffile)
 
     # make pdf from file
