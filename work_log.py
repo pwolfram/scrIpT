@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import os
 import sys
 import glob
@@ -15,16 +16,44 @@ def quarter_ceil(x): #{{{
     """ round up to nearest quarter """
     return np.ceil(x*4)/4. #}}}
 
-def print_proj_type(df, projtype='ACMEanalysis'): #{{{
-    print '---------------------------------------------'
-    print 'Computing summary for %s:'%(projtype)
-    print '---------------------------------------------'
-    acmework = df[df['proj'].isin([projtype])]\
-                            .resample('W')\
-                            .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
+def last_week_summary(df, numdays=7, alldetail=True): #{{{
+    today = datetime.datetime.now()
+    start = today - datetime.timedelta(days=numdays)
+    dfs = df.loc[start.strftime('%Y-%m-%d'):today.strftime('%Y-%m-%d')]
+    for projtype in np.unique(dfs.proj.values):
+        print_proj_type(dfs, projtype, workdetail=False)
+        if alldetail:
+            for spectask in np.unique(dfs[dfs['proj'].isin([projtype])].task.values):
+                print_proj_type(dfs, projtype, spectask=spectask, workdetail=True)
+        print('****************************************************************************************')
+    return #}}}
+
+def print_proj_type(df, projtype='ACMEanalysis', spectask=None, workdetail=True): #{{{
+
+    if spectask is not None:
+        fmtstr = 'Computing detailed summary for %s: %s'
+    else:
+        fmtstr = '\nTotal summary for %s: %s'
+    if spectask is not None:
+        print('                                             ')
+    print(fmtstr%(projtype, ' ' if spectask is None else spectask))
+    if spectask is not None:
+        print('---------------------------------------------')
+
+    acmework = df[df['proj'].isin([projtype])]
+    if spectask is not None:
+        acmework = acmework[acmework['task'].isin([spectask])]
+    acmework = acmework.resample('W')\
+                       .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
     for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
         if not np.isnan(hrs):
-            print 'Week of', day.date(), ':', log, "(%0.2f hrs)"%(quarter_ceil(hrs))
+            printhrs = "(%0.2f hrs)"%(quarter_ceil(hrs))
+            if not workdetail:
+                log = '<Log Uncomputed from Total>'
+            print('Week of', day.date(), ' %s:'%(printhrs), log)
+
+    if spectask is None:
+        print('****************************************************************************************')
     return #}}}
 
 def plot_avg_hrs(df): #{{{
@@ -46,29 +75,29 @@ def print_general_summary(df): #{{{
     start = '%02d-%02d-%02d'%(twoweeksago.year, twoweeksago.month, twoweeksago.day)
     biweeklywork = df[start:end].groupby(pd.TimeGrouper('D')).sum()
 
-    print '-------------------------------'
-    print '          Daily hours          '
-    print '-------------------------------'
+    print('-------------------------------')
+    print('          Daily hours          ')
+    print('-------------------------------')
     for day, hrs in zip(biweeklywork.index, biweeklywork.hrs):
         if not np.isnan(hrs):
-            print '| Day ', day.date(), '|', " %5.2f hrs |"%(hrs)
-    print '-------------------------------'
-    print 'Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0)
+            print('| Day ', day.date(), '|', " %5.2f hrs |"%(hrs))
+    print('-------------------------------')
+    print('Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0))
 
-    print '\n'
+    print('\n')
 
     #print week totals
-    print '-----------------------------'
-    print '     Week ending totals      '
-    print '-----------------------------'
+    print('-----------------------------')
+    print('     Week ending totals      ')
+    print('-----------------------------')
     weeks = df.resample('W').sum().tail()
     for day, hrs in zip(weeks.index, weeks.hrs):
-        print '| ', day.date(), ' | ', "%6.2f hrs |"%(hrs)
-    print '-----------------------------'
+        print('| ', day.date(), ' | ', "%6.2f hrs |"%(hrs))
+    print('-----------------------------')
     return #}}}
 
 def savefig(name): #{{{
-    print 'Saving figure to %s'%(name)
+    print('Saving figure to %s'%(name))
     plt.savefig(name) #}}}
 
 def build_log(database): #{{{
@@ -119,9 +148,14 @@ def build_log(database): #{{{
                          'task' : tottask,
                          'log' : totlog
                          }, index=pd.Series(totstarttime))
+    last_week_summary(df, alldetail=False)
+    last_week_summary(df)
     # print summary
     #print_proj_type(df, projtype='ACMEanalysis')
     #print_proj_type(df, projtype='ACME')
+    #print_proj_type(df, projtype='coastal')
+    #print_proj_type(df, projtype='ziso')
+    #print_proj_type(df, projtype='sciviz')
     print_general_summary(df)
 
     # plot of average hours:
@@ -136,7 +170,7 @@ def build_log(database): #{{{
 def folder_exists(folder, create=True, verbose=True): #{{{
     if not os.path.exists(folder):
         if create:
-            print 'Creating folder at ', folder
+            print('Creating folder at ', folder)
             os.makedirs(folder)
         return False
     else:
@@ -152,7 +186,7 @@ def load_stored_sets(setlocation): #{{{
     return setvalues #}}}
 
 def save_stored_sets(aset, setlocation): #{{{
-    print 'saving %s at %s'%(aset, setlocation)
+    print('saving %s at %s'%(aset, setlocation))
     with open(setlocation, 'w') as af:
         pickle.dump(aset, af)
     return #}}}
@@ -173,7 +207,7 @@ def make_log_entry(logfile, timestamp, projname, taskname, entry): #{{{
             log =  'PROJ={' + projname + '}, TASK={' + taskname + '}, LOG={' + entry + '}\n'
         line = timestamp + '\t '+ log
         lf.write(line)
-        print 'wrote:\n   %s to\n%s'%(line, logfile)
+        print('wrote:\n   %s to\n%s'%(line, logfile))
     return #}}}
 
 def undo_log_entry(logfile, timestamp): #{{{
@@ -190,8 +224,9 @@ def undo_log_entry(logfile, timestamp): #{{{
     with open(undofile, 'a') as lf:
         undoline = 'Undo at %s:'%(timestamp) + lastline
         lf.write(undoline)
-        print 'wrote:\n   %s to\n%s'%(undoline, undofile)
+        print('wrote:\n   %s to\n%s'%(undoline, undofile))
     return #}}}
+
 
 def file_locations(database): #{{{
     now = datetime.datetime.now()
@@ -209,14 +244,14 @@ def file_locations(database): #{{{
 
 def print_items(prompt, items, nitems=3): #{{{
     # break items up into sets of 5
-    print "================================================================================"
-    print prompt
-    print "--------------------------------------------------------------------------------"
+    print("================================================================================")
+    print(prompt)
+    print("--------------------------------------------------------------------------------")
     thelist = list(items)
     n = len(thelist)
     for i in np.arange(int(np.ceil(n/float(nitems)))):
-        print thelist[nitems*i:(nitems*i+nitems)]
-    print "================================================================================"
+        print(thelist[nitems*i:(nitems*i+nitems)])
+    print("================================================================================")
     return #}}}
 
 def log_work(database, start, end, undo): #{{{
@@ -278,19 +313,19 @@ if __name__ == "__main__":
         options.database = os.path.expanduser('~') + '/Documents/WorkLogDatabase'
 
     source = sys.argv[0]
-    print "Using database at " + options.database + " with script at " + source
+    print("Using database at " + options.database + " with script at " + source)
 
     if options.printlog:
         logfile, timestamp = file_locations(options.database)
-        print "================================================================================"
-        print 'Current time is %s'%(timestamp)
-        print 'Outputing daily log %s:'%(logfile)
-        print "--------------------------------------------------------------------------------"
+        print("================================================================================")
+        print('Current time is %s'%(timestamp))
+        print('Outputing daily log %s:'%(logfile))
+        print("--------------------------------------------------------------------------------")
         with open(logfile,'r') as lf:
-            print lf.read()
+            print(lf.read())
             lf.close()
-        print "--------------------------------------------------------------------------------"
-        print logfile
+        print("--------------------------------------------------------------------------------")
+        print(logfile)
     elif options.editlog:
         logfile, timestamp = file_locations(options.database)
         edit_call = [ "mvim", logfile]
