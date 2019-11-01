@@ -51,6 +51,15 @@ def print_proj_type(df, projtype='ACMEanalysis', spectask=None, workdetail=True)
             if not workdetail:
                 log = '<Log Uncomputed from Total>'
             print('Week of', day.date(), ' %s:'%(printhrs), log)
+    
+    acmework = df[df['proj'].isin([projtype])].resample('D')\
+                       .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
+    for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
+        if not np.isnan(hrs):
+            printhrs = "(%0.2f hrs)"%(quarter_ceil(hrs))
+            if not workdetail:
+                log = '<Log Uncomputed from Total>'
+            print('Week of', day.date(), ' %s:'%(printhrs), log)
 
     if spectask is None:
         print('****************************************************************************************')
@@ -58,7 +67,6 @@ def print_proj_type(df, projtype='ACMEanalysis', spectask=None, workdetail=True)
 
 def plot_avg_hrs(df): #{{{
     fig, ax = plt.subplots(1, 1)
-    plt.hold(True)
     (df.resample("1d").sum().rolling(window=14, min_periods=1).sum()/2).plot(label='daily', ax=ax);
     (df.resample("1W").sum().asfreq('d', method='backfill')).plot(label='weekly', ax=ax)
     plt.ylabel('hrs / week')
@@ -73,7 +81,7 @@ def print_general_summary(df): #{{{
     twoweeksago = now - datetime.timedelta(13)
     end = '%02d-%02d-%02d'%(now.year, now.month, now.day)
     start = '%02d-%02d-%02d'%(twoweeksago.year, twoweeksago.month, twoweeksago.day)
-    biweeklywork = df[start:end].groupby(pd.TimeGrouper('D')).sum()
+    biweeklywork = df[start:end].groupby(pd.Grouper(freq='D')).sum()
 
     print('-------------------------------')
     print('          Daily hours          ')
@@ -120,11 +128,12 @@ def build_log(database): #{{{
 
         time = pd.to_datetime(time, format='%y-%m-%d %H:%M:%S')
 
-        tottimestamp += time[:]
-        totproj += proj.tolist()[:]
-        tottask += task.tolist()[:]
-        totlog  += log.tolist()[:]
-        totvalid += valid[:]
+        if(type(valid[0]) is bool):
+            tottimestamp += time[:]
+            totproj += proj.tolist()[:]
+            tottask += task.tolist()[:]
+            totlog  += log.tolist()[:]
+            totvalid += valid[:]
 
     hours = np.asarray([0] + [atime.seconds/3600. for atime in np.diff(tottimestamp)])
     #plt.plot(tottimestamp,hours,'.'); plt.show()
@@ -179,7 +188,7 @@ def folder_exists(folder, create=True, verbose=True): #{{{
 
 def load_stored_sets(setlocation): #{{{
     if os.path.isfile(setlocation):
-        with open(setlocation, 'r') as af:
+        with open(setlocation, 'rb') as af:
             setvalues = pickle.load(af)
     else:
         setvalues = set()
@@ -187,7 +196,7 @@ def load_stored_sets(setlocation): #{{{
 
 def save_stored_sets(aset, setlocation): #{{{
     print('saving %s at %s'%(aset, setlocation))
-    with open(setlocation, 'w') as af:
+    with open(setlocation, 'wb') as af:
         pickle.dump(aset, af)
     return #}}}
 
@@ -274,16 +283,16 @@ def log_work(database, start, end, undo): #{{{
         build_log(database)
     else:
         print_items('Projects', sorted(projects))
-        response = raw_input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
+        response = input("Please enter project names, e.g., 'proj1, proj2, etc':\n")
         projname = sanitize_response(response)
         projects = projects | set(projname)
 
         print_items('Tasks', sorted(tasks))
-        response = raw_input("Please enter task names, e.g., 'analysis, lit_review, misc':\n")
+        response = input("Please enter task names, e.g., 'analysis, lit_review, misc':\n")
         taskname = sanitize_response(response)
         tasks = tasks | set(taskname)
 
-        entry = raw_input("Please log entry:\n")
+        entry = input("Please log entry:\n")
         # refresh time stamp to follow once entry is committed
         logfile, timestamp = file_locations(database)
         make_log_entry(logfile, timestamp, ','.join(projname), ','.join(taskname), entry)
