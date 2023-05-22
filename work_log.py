@@ -16,6 +16,10 @@ def quarter_ceil(x): #{{{
     """ round up to nearest quarter """
     return np.ceil(x*4)/4. #}}}
 
+def custom_round(x):
+    #return quarter_ceil(x)
+    return np.round(x,1)
+
 def last_week_summary(df, numdays=7, alldetail=True): #{{{
     today = datetime.datetime.now()
     start = today - datetime.timedelta(days=numdays)
@@ -44,22 +48,28 @@ def print_proj_type(df, projtype='ACMEanalysis', spectask=None, workdetail=True)
     if spectask is not None:
         acmework = acmework[acmework['task'].isin([spectask])]
     acmework = acmework.resample('W')\
-                       .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
-    for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
+                       .agg(hrs=('hrs', sum), 
+                            proj=('proj',lambda x: '; '.join(x.values)),
+                            task=('task',lambda x: '; '.join(x.values)),
+                            log=('log',lambda x: '; '.join(x.values)))
+    for day, hrs, log in zip(acmework.index, acmework.hrs, acmework.log):
         if not np.isnan(hrs):
-            printhrs = "(%0.2f hrs)"%(quarter_ceil(hrs))
+            printhrs = "(%0.1f hrs)"%(custom_round(hrs))
             if not workdetail:
                 log = '<Log Uncomputed from Total>'
             print('Week of', day.date(), ' %s:'%(printhrs), log)
     
     acmework = df[df['proj'].isin([projtype])].resample('D')\
-                       .agg({'Measurement':'sum', 'Safe': lambda x: '; '.join(x.values)})
-    for day, hrs, log in zip(acmework.index, acmework.Measurement.hrs, acmework.Safe.log):
+                                              .agg(hrs=('hrs',sum), 
+                                                      proj=('proj',lambda x: '; '.join(x.values)),
+                                                      task=('task',lambda x: '; '.join(x.values)),
+                                                      log=('log',lambda x: '; '.join(x.values)))
+    for day, hrs, log in zip(acmework.index, acmework.hrs, acmework.log):
         if not np.isnan(hrs):
-            printhrs = "(%0.2f hrs)"%(quarter_ceil(hrs))
+            printhrs = "(%0.1f hrs)"%(custom_round(hrs))
             if not workdetail:
                 log = '<Log Uncomputed from Total>'
-            print('Week of', day.date(), ' %s:'%(printhrs), log)
+            print('Day of', day.date(), ' %s:'%(printhrs), log)
 
     if spectask is None:
         print('****************************************************************************************')
@@ -67,8 +77,8 @@ def print_proj_type(df, projtype='ACMEanalysis', spectask=None, workdetail=True)
 
 def plot_avg_hrs(df): #{{{
     fig, ax = plt.subplots(1, 1)
-    (df.resample("1d").sum().rolling(window=14, min_periods=1).sum()/2).plot(label='daily', ax=ax);
-    (df.resample("1W").sum().asfreq('d', method='backfill')).plot(label='weekly', ax=ax)
+    (df.resample("1d").sum('hrs').rolling(window=14, min_periods=1).sum()/2).plot(label='daily', ax=ax);
+    (df.resample("1W").sum('hrs').asfreq('d', method='backfill')).plot(label='weekly', ax=ax)
     plt.ylabel('hrs / week')
     L = plt.legend(loc='best')
     L.get_texts()[0].set_text('daily')
@@ -81,14 +91,14 @@ def print_general_summary(df): #{{{
     twoweeksago = now - datetime.timedelta(13)
     end = '%02d-%02d-%02d'%(now.year, now.month, now.day)
     start = '%02d-%02d-%02d'%(twoweeksago.year, twoweeksago.month, twoweeksago.day)
-    biweeklywork = df[start:end].groupby(pd.Grouper(freq='D')).sum()
+    biweeklywork = df[start:end].groupby(pd.Grouper(freq='D')).sum('hrs')
 
     print('-------------------------------')
     print('          Daily hours          ')
     print('-------------------------------')
     for day, hrs in zip(biweeklywork.index, biweeklywork.hrs):
         if not np.isnan(hrs):
-            print('| Day ', day.date(), '|', " %5.2f hrs |"%(hrs))
+            print('| Day ', day.date(), '|', " %5.1f hrs |"%(hrs))
     print('-------------------------------')
     print('Sum: %.2f hrs/week'%(biweeklywork.sum().hrs/2.0))
 
@@ -98,9 +108,9 @@ def print_general_summary(df): #{{{
     print('-----------------------------')
     print('     Week ending totals      ')
     print('-----------------------------')
-    weeks = df.resample('W').sum().tail()
+    weeks = df.resample('W').sum('hrs').tail()
     for day, hrs in zip(weeks.index, weeks.hrs):
-        print('| ', day.date(), ' | ', "%6.2f hrs |"%(hrs))
+        print('| ', day.date(), ' | ', "%6.1f hrs |"%(hrs))
     print('-----------------------------')
     return #}}}
 
@@ -112,7 +122,7 @@ def build_log(database): #{{{
     # get files organized in terms of year/month/day/daily.log
     logfiles = glob.glob(database + '/*/*/*/daily.log')
 
-    tottimestamp = []
+    tottimestamp = None
     totduration = []
     totproj = []
     tottask = []
@@ -121,26 +131,29 @@ def build_log(database): #{{{
     for logfile in logfiles:
         # process raw data
         time = np.asarray([re.findall(r'..-..-.. ..:..:..', line)[0]  for line in open(logfile)])
-        proj = np.asarray([re.findall(r'PROJ={.*?}', line)  for line in open(logfile)])
-        task = np.asarray([re.findall(r'TASK={.*?}', line) for line in open(logfile)])
-        log  = np.asarray([re.findall(r'LOG={.*?}', line) for line in open(logfile)])
-        valid = [ap != [] for ap in proj]
+
+        def get_lines(string):
+           item = [re.findall(string, line)  for line in open(logfile)] 
+           return np.asarray([ai if ai != [] else [''] for ai in item])
+
+        proj = get_lines(r'PROJ={.*?}')
+        task = get_lines(r'TASK={.*?}')
+        log  = get_lines(r'LOG={.*?}')
+        valid = [(ap != [''])[0] for ap in proj]
 
         time = pd.to_datetime(time, format='%y-%m-%d %H:%M:%S')
 
-        if(type(valid[0]) is bool):
-            tottimestamp += time[:]
-            totproj += proj.tolist()[:]
-            tottask += task.tolist()[:]
-            totlog  += log.tolist()[:]
-            totvalid += valid[:]
+        tottimestamp = np.concatenate((tottimestamp, time)) if tottimestamp is not None else time
+        totproj += proj.tolist()[:]
+        tottask += task.tolist()[:]
+        totlog  += log.tolist()[:]
+        totvalid += valid[:]
 
-    hours = np.asarray([0] + [atime.seconds/3600. for atime in np.diff(tottimestamp)])
+    hours = np.asarray([0] + [atime/np.timedelta64(1, 'h') for atime in np.diff(tottimestamp)])
     #plt.plot(tottimestamp,hours,'.'); plt.show()
     #assert hours[-1] < 3./60., 'Ending time is very large= ' + hours[-1]
     #assert proj[0] == [] and proj[-1] == [], "Don't necessarily have good data for " + logfile
     #assert task[0] == [] and task[-1] == [], "Don't necessarily have good data for " + logfile
-
     totvalid = np.where(totvalid)
     totproj = [item[0][6:-1] for item in np.asarray(totproj)[totvalid].tolist()]
     tottask = [item[0][6:-1] for item in np.asarray(tottask)[totvalid].tolist()]
